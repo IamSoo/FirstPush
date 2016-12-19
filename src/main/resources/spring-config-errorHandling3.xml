@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:int="http://www.springframework.org/schema/integration"
+       xmlns:beans="http://www.springframework.org/schema/beans"
+       xmlns:stream="http://www.springframework.org/schema/integration/stream"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd http://www.springframework.org/schema/integration http://www.springframework.org/schema/integration/spring-integration.xsd
+       http://www.springframework.org/schema/integration/stream http://www.springframework.org/schema/integration/stream/spring-integration-stream.xsd">
+	
+
+	<int:poller default="true" fixed-delay="1000" max-messages-per-poll="2"/>
+
+	<int:inbound-channel-adapter ref="partyHost"
+		method="nextInvitation" channel="invitations" />
+
+	<int:channel id="invitations">
+		<int:queue capacity="1" />
+	</int:channel>
+
+	<bean id="partyHost" class="com.soo.spring.integration.pollable.errorHandling.PartyHost" />
+	<bean id="partyGuest" class="com.soo.spring.integration.pollable.errorHandling.PartyGuest" />
+	<bean id="errorUnwrapper" class="com.soo.spring.integration.pollable.errorHandling.ErrorUnwrapper" />
+	<bean id="errorHandler" class="com.soo.spring.integration.pollable.errorHandling.ErrorHandler" />
+	
+	<int:chain input-channel="invitations">
+		<!-- int:header-enricher>
+			<int:error-channel ref="failed-invitations" />
+		</int:header-enricher-->
+		<int:service-activator ref="partyGuest" method="onInvitation" />
+	</int:chain>
+
+	<int:channel id="failed-invitations" />
+
+	<!-- int:chain input-channel="failed-invitations">
+		<int:transformer ref="errorUnwrapper" />
+		<int:service-activator ref="partyHost" method="onInvitationFailed" />
+	</int:chain-->
+	<int:chain input-channel="errorChannel">
+		<int:service-activator ref="errorHandler" method="handleException" />
+	</int:chain>
+
+	<!--
+		If you don't listen to the default error channel you risk losing track
+		of exceptions, as they cannot be passed back to the sender in band. It
+		is recommended to have a generic error handler in your configuration
+		to prevent this.
+	-->
+	<!-- stream:stderr-channel-adapter channel="errorChannel" append-newline="true" /-->
+
+</beans>

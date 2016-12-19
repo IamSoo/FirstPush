@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:int="http://www.springframework.org/schema/integration"
+       xmlns:beans="http://www.springframework.org/schema/beans"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd http://www.springframework.org/schema/integration http://www.springframework.org/schema/integration/spring-integration.xsd">
+	
+	<context:annotation-config />	
+	    <context:component-scan base-package="com.soo.spring.integration.errorHandling.IOrderService"/>
+	
+	
+	<int:channel id="requestChannel"></int:channel>
+	<int:gateway id="firstGateWay" default-request-channel="requestChannel"
+				service-interface="com.soo.spring.integration.errorHandling.IOrderService"/>
+	
+	
+	<int:service-activator input-channel="requestChannel" ref="orderTaker" method="takeOrder" output-channel="singleRequestChannel"></int:service-activator>
+	<bean id="orderTaker" class="com.soo.spring.integration.errorHandling.OrderTaker"></bean>
+	
+	<int:channel id="singleRequestChannel"></int:channel>
+	<int:splitter input-channel="requestChannel" output-channel="singleRequestChannel" ref="splittOrder"></int:splitter>
+	
+	<bean id="splittOrder" class="com.soo.spring.integration.errorHandling.SplittOrder"></bean>
+	
+	<int:channel id="filteredChannel"></int:channel>
+	<int:filter input-channel="singleRequestChannel" output-channel="filteredChannel" ref="orderFilter"></int:filter> 
+	<bean id="orderFilter" class="com.soo.spring.integration.errorHandling.OrderFilter"></bean>
+		
+	<int:channel id="foriegnSingleRequest"></int:channel>
+	<int:channel id="domesticSingleRequest"></int:channel>
+	
+	<int:recipient-list-router input-channel="filteredChannel" >
+		<int:recipient channel="foriegnSingleRequest" selector-expression="payload.foreign"/>
+		<int:recipient channel="domesticSingleRequest" selector-expression="!payload.foreign"/>
+	</int:recipient-list-router>
+	
+	<int:transformer input-channel="foriegnSingleRequest" output-channel="finalChannel" ref="foreignProcess" />
+	<int:transformer input-channel="domesticSingleRequest" output-channel="finalChannel" ref="localProcess" />
+	
+	<int:channel id="finalChannel"></int:channel>
+	<int:service-activator id="finalService" ref="finalService" input-channel="finalChannel" method="finalProcess"></int:service-activator>
+	<bean id="finalService" class="com.soo.spring.integration.errorHandling.FinalService"></bean>
+	
+	<bean id="foreignProcess" class="com.soo.spring.integration.errorHandling.ForeignProcess"></bean>
+	<bean id="localProcess" class="com.soo.spring.integration.errorHandling.LocalProcess"></bean>
+	
+	<int:service-activator id="errorHandler" ref="errorHandler" input-channel="errorChannel" method="handleException"></int:service-activator>
+	
+	
+</beans>

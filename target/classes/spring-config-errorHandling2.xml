@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:int="http://www.springframework.org/schema/integration"
+       xmlns:beans="http://www.springframework.org/schema/beans"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd http://www.springframework.org/schema/integration http://www.springframework.org/schema/integration/spring-integration.xsd">
+	
+	<context:annotation-config />	
+	    <context:component-scan base-package="com.soo.spring.integration.errorHandling.IOrderService"/>
+	
+	<int:gateway id="errorHandlingGateway" default-request-channel="requestChannel"
+				service-interface="com.soo.spring.integration.async.errorHandling.ErrorHandlingGateway"/>
+
+	<int:channel id="requestChannel">
+		<int:dispatcher task-executor="taskExecutor"></int:dispatcher>
+	</int:channel>
+
+	<int:service-activator ref="messagePrinterExecutor" input-channel="requestChannel" method="printMessage">
+	
+	</int:service-activator>
+	<bean id="messagePrinterExecutor" class="com.soo.spring.integration.async.errorHandling.MessagePrinterExecutor">
+	</bean>
+	<bean id="taskExecutor" class="org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor">
+		  <property name="corePoolSize" value="2" />
+		  <property name="maxPoolSize" value="2" />
+		  <property name="queueCapacity" value="25" />
+	</bean>
+
+	
+	<int:service-activator ref="errorHandler" input-channel="errorChannel" method="handleException"></int:service-activator>
+	<bean id="errorHandler" class="com.soo.spring.integration.async.errorHandling.ErrorHandler" />
+	
+</beans>
